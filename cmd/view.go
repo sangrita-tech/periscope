@@ -39,8 +39,13 @@ var viewCmd = &cobra.Command{
 		}
 
 		return filepath.WalkDir(viewDir, func(path string, d os.DirEntry, err error) error {
+			logErr := func(action, filePath string, err error) {
+				abs, _ := filepath.Abs(filePath)
+				fmt.Fprintf(os.Stderr, "%s - %s (%v)\n", action, abs, err)
+			}
+
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "error accessing %q: %v\n", path, err)
+				logErr("access error", path, err)
 				return nil
 			}
 
@@ -50,21 +55,21 @@ var viewCmd = &cobra.Command{
 
 			f, err := os.Open(path)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to open file %q: %v\n", path, err)
+				logErr("open failed", path, err)
 				return nil
 			}
 			defer f.Close()
 
 			absPath, err := filepath.Abs(path)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to get absolute file path %q: %v\n", path, err)
+				logErr("resolve path failed", path, err)
 				return nil
 			}
 
 			fmt.Printf("\n[FILE] %s\n\n", absPath)
 
 			if _, err := io.Copy(os.Stdout, f); err != nil {
-				fmt.Fprintf(os.Stderr, "\nerror reading file %q: %v\n", path, err)
+				logErr("read failed", path, err)
 			}
 
 			return nil
