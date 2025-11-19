@@ -1,16 +1,11 @@
 package cmd
 
 import (
-	"os"
-
 	"github.com/spf13/cobra"
-
-	"github.com/sangrita-tech/periscope/internal/config"
-	"github.com/sangrita-tech/periscope/internal/git"
 )
 
 var (
-	gitClient *git.Git
+	Version = "dev"
 )
 
 var rootCmd = &cobra.Command{
@@ -19,17 +14,10 @@ var rootCmd = &cobra.Command{
 	Long:  "Periscope recursively scans a directory or Git repo and prints file contents.",
 }
 
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
-	}
+func Execute() error {
+	return rootCmd.Execute()
 }
 
 func init() {
-	cfg, err := config.Load()
-	if err != nil {
-		return
-	}
-
-	gitClient = git.New(&cfg.Git)
+	rootCmd.Version = Version
 }

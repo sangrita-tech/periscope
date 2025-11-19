@@ -1,7 +1,13 @@
 package main
 
-import "github.com/sangrita-tech/periscope/cmd"
+import (
+	"log"
+
+	"github.com/sangrita-tech/periscope/cmd"
+)
 
 func main() {
-	cmd.Execute()
+	if err := cmd.Execute(); err != nil {
+		log.Fatal(err)
+	}
 }

@@ -1,0 +1,39 @@
+project_name: periscope
+
+env:
+  - CGO_ENABLED=0
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: periscope
+    main: ./cmd/main.go
+    ldflags:
+      - "-s -w -X github.com/sangrita-tech/periscope/cmd.Version={{.Version}}"
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: release_archives
+    format: zip
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE*
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+
+release:
+  github:
+    owner: sangrita-tech
+    name: periscope
+  draft: false
+  prerelease: false
