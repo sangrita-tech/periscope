@@ -5,8 +5,14 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
+	"github.com/atotto/clipboard"
 	"github.com/spf13/cobra"
+)
+
+var (
+	copyToClipboard bool
 )
 
 var viewCmd = &cobra.Command{
@@ -35,12 +41,27 @@ var viewCmd = &cobra.Command{
 			return fmt.Errorf("%q is not a directory", viewDir)
 		}
 
-		return filepath.WalkDir(viewDir, func(path string, d os.DirEntry, err error) error {
-			logErr := func(action, filePath string, err error) {
-				abs, _ := filepath.Abs(filePath)
-				fmt.Fprintf(os.Stderr, "%s - %s (%v)\n", action, abs, err)
-			}
+		var out strings.Builder
 
+		write := func(s string) {
+			if copyToClipboard {
+				out.WriteString(s)
+			}
+			if !copyToClipboard {
+				fmt.Print(s)
+			}
+		}
+
+		logErr := func(action, filePath string, err error) {
+			abs, _ := filepath.Abs(filePath)
+			msg := fmt.Sprintf("%s - %s (%v)\n", action, abs, err)
+			if copyToClipboard {
+				out.WriteString(msg)
+			}
+			fmt.Fprint(os.Stderr, msg)
+		}
+
+		walkErr := filepath.WalkDir(viewDir, func(path string, d os.DirEntry, err error) error {
 			if err != nil {
 				logErr("access error", path, err)
 				return nil
@@ -63,17 +84,45 @@ var viewCmd = &cobra.Command{
 				return nil
 			}
 
-			fmt.Printf("\n[FILE] %s\n\n", absPath)
+			write(fmt.Sprintf("\n[FILE] %s\n\n", absPath))
 
-			if _, err := io.Copy(os.Stdout, f); err != nil {
-				logErr("read failed", path, err)
+			if copyToClipboard {
+				if _, err := io.Copy(&out, f); err != nil {
+					logErr("read failed", path, err)
+				}
+			} else {
+				if _, err := io.Copy(os.Stdout, f); err != nil {
+					logErr("read failed", path, err)
+				}
 			}
+
+			write("\n")
 
 			return nil
 		})
+
+		if walkErr != nil {
+			return walkErr
+		}
+
+		if copyToClipboard {
+			if err := clipboard.WriteAll(out.String()); err != nil {
+				return fmt.Errorf("failed to copy to clipboard: %v", err)
+			}
+		}
+
+		return nil
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(viewCmd)
+
+	viewCmd.Flags().BoolVarP(
+		&copyToClipboard,
+		"copy",
+		"c",
+		false,
+		"copy output to clipboard instead of printing",
+	)
 }
