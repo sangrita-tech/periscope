@@ -61,6 +61,8 @@ var viewCmd = &cobra.Command{
 			fmt.Fprint(os.Stderr, msg)
 		}
 
+		firstFile := true
+
 		walkErr := filepath.WalkDir(viewDir, func(path string, d os.DirEntry, err error) error {
 			if err != nil {
 				logErr("access error", path, err)
@@ -84,7 +86,12 @@ var viewCmd = &cobra.Command{
 				return nil
 			}
 
-			write(fmt.Sprintf("\n[FILE] %s\n\n", absPath))
+			if firstFile {
+				write(fmt.Sprintf("[FILE] %s\n\n", absPath))
+				firstFile = false
+			} else {
+				write(fmt.Sprintf("\n[FILE] %s\n\n", absPath))
+			}
 
 			if copyToClipboard {
 				if _, err := io.Copy(&out, f); err != nil {
@@ -95,8 +102,6 @@ var viewCmd = &cobra.Command{
 					logErr("read failed", path, err)
 				}
 			}
-
-			write("\n")
 
 			return nil
 		})
