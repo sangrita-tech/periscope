@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,9 @@ import (
 var (
 	copyToClipboard bool
 	stripComments   bool
+
+	ignorePath    []string
+	ignoreContent []string
 )
 
 var viewCmd = &cobra.Command{
@@ -62,6 +66,31 @@ var viewCmd = &cobra.Command{
 			fmt.Fprint(os.Stderr, msg)
 		}
 
+		// матчим и по полному пути, и по basename
+		matchesAny := func(patterns []string, s string) bool {
+			base := filepath.Base(s)
+
+			for _, pat := range patterns {
+				if pat == "" {
+					continue
+				}
+
+				ok1, err1 := filepath.Match(pat, s)
+				if err1 == nil && ok1 {
+					return true
+				}
+
+				// отдельно проверяем basename, чтобы ".git" матчило директорию ".git"
+				if base != s {
+					ok2, err2 := filepath.Match(pat, base)
+					if err2 == nil && ok2 {
+						return true
+					}
+				}
+			}
+			return false
+		}
+
 		firstFile := true
 
 		walkErr := filepath.WalkDir(viewDir, func(path string, d os.DirEntry, err error) error {
@@ -70,6 +99,17 @@ var viewCmd = &cobra.Command{
 				return nil
 			}
 
+			// СНАЧАЛА проверяем игнор по пути (и для файлов, и для директорий)
+			if matchesAny(ignorePath, path) {
+				if d.IsDir() {
+					// не заходить внутрь этой директории
+					return fs.SkipDir
+				}
+				// просто пропускаем файл
+				return nil
+			}
+
+			// дальше нас интересуют только файлы
 			if d.IsDir() {
 				return nil
 			}
@@ -87,17 +127,19 @@ var viewCmd = &cobra.Command{
 				return nil
 			}
 
-			if firstFile {
-				write(fmt.Sprintf("[FILE] %s\n\n", absPath))
-				firstFile = false
-			} else {
-				write(fmt.Sprintf("\n[FILE] %s\n\n", absPath))
-			}
-
 			scanner := bufio.NewScanner(f)
+
+			var fileBuf strings.Builder
+			skipFile := false
 
 			for scanner.Scan() {
 				line := scanner.Text()
+
+				// если содержимое попадает под ignoreContent — выкидываем файл целиком
+				if matchesAny(ignoreContent, line) {
+					skipFile = true
+					break
+				}
 
 				if stripComments {
 					trimmed := strings.TrimSpace(line)
@@ -108,12 +150,26 @@ var viewCmd = &cobra.Command{
 					}
 				}
 
-				write(line + "\n")
+				fileBuf.WriteString(line + "\n")
 			}
 
 			if err := scanner.Err(); err != nil {
 				logErr("read failed", path, err)
+				return nil
 			}
+
+			if skipFile {
+				return nil
+			}
+
+			if firstFile {
+				write(fmt.Sprintf("[FILE] %s\n\n", absPath))
+				firstFile = false
+			} else {
+				write(fmt.Sprintf("\n[FILE] %s\n\n", absPath))
+			}
+
+			write(fileBuf.String())
 
 			return nil
 		})
@@ -149,5 +205,21 @@ func init() {
 		"z",
 		false,
 		"strip comment lines (#, //, --) from file contents",
+	)
+
+	viewCmd.Flags().StringSliceVarP(
+		&ignorePath,
+		"ignore-path",
+		"i",
+		nil,
+		"ignore files and directories whose path or name matches this glob-like pattern (can be repeated)",
+	)
+
+	viewCmd.Flags().StringSliceVarP(
+		&ignoreContent,
+		"ignore-content",
+		"I",
+		nil,
+		"ignore files that contain a line matching this glob-like pattern (can be repeated)",
 	)
 }
