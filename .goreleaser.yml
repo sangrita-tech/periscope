@@ -9,7 +9,7 @@ before:
 
 builds:
   - id: periscope
-    main: ./cmd/main.go
+    main: ./main.go
     ldflags:
       - "-s -w -X github.com/sangrita-tech/periscope/cmd.Version={{.Version}}"
     goos:
