@@ -9,17 +9,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	viewDir string
-)
-
 var viewCmd = &cobra.Command{
-	Use:   "view",
+	Use:   "view [directory]",
 	Short: "Recursively print contents of all files in a directory",
-	Long:  "The view command recursively scans the given directory and prints the full contents of every file it finds along with the file path. If no directory is provided, the current working directory is used.",
+	Long:  "The view command recursively scans the given directory and prints the contents of every file it finds. If no directory is provided, the current working directory is used.",
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if viewDir == "" {
-			viewDir = "."
+		viewDir := "."
+		if len(args) > 0 {
+			viewDir = args[0]
 		}
 
 		info, err := os.Stat(viewDir)
@@ -28,9 +26,8 @@ var viewCmd = &cobra.Command{
 				return fmt.Errorf("directory %q does not exist", viewDir)
 			}
 			if os.IsPermission(err) {
-				return fmt.Errorf("you don't have permission to access directory %q", viewDir)
+				return fmt.Errorf("permission denied for directory %q", viewDir)
 			}
-
 			return fmt.Errorf("failed to access directory %q: %v", viewDir, err)
 		}
 
@@ -79,12 +76,4 @@ var viewCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(viewCmd)
-
-	viewCmd.Flags().StringVarP(
-		&viewDir,
-		"dir",
-		"d",
-		".",
-		"directory to scan",
-	)
 }
