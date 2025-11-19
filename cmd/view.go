@@ -1,8 +1,8 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +13,7 @@ import (
 
 var (
 	copyToClipboard bool
+	stripComments   bool
 )
 
 var viewCmd = &cobra.Command{
@@ -93,14 +94,25 @@ var viewCmd = &cobra.Command{
 				write(fmt.Sprintf("\n[FILE] %s\n\n", absPath))
 			}
 
-			if copyToClipboard {
-				if _, err := io.Copy(&out, f); err != nil {
-					logErr("read failed", path, err)
+			scanner := bufio.NewScanner(f)
+
+			for scanner.Scan() {
+				line := scanner.Text()
+
+				if stripComments {
+					trimmed := strings.TrimSpace(line)
+					if strings.HasPrefix(trimmed, "#") ||
+						strings.HasPrefix(trimmed, "//") ||
+						strings.HasPrefix(trimmed, "--") {
+						continue
+					}
 				}
-			} else {
-				if _, err := io.Copy(os.Stdout, f); err != nil {
-					logErr("read failed", path, err)
-				}
+
+				write(line + "\n")
+			}
+
+			if err := scanner.Err(); err != nil {
+				logErr("read failed", path, err)
 			}
 
 			return nil
@@ -129,5 +141,13 @@ func init() {
 		"c",
 		false,
 		"copy output to clipboard instead of printing",
+	)
+
+	viewCmd.Flags().BoolVarP(
+		&stripComments,
+		"strip-comments",
+		"z",
+		false,
+		"strip comment lines (#, //, --) from file contents",
 	)
 }
