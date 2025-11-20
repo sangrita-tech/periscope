@@ -6,6 +6,7 @@ require (
 	github.com/atotto/clipboard v0.1.4
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/spf13/cobra v1.10.1
+	mvdan.cc/xurls/v2 v2.6.0
 )
 
 require (

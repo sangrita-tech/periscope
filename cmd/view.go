@@ -7,6 +7,7 @@ import (
 var (
 	copyToClipboard bool
 	stripComments   bool
+	maskURL         bool
 
 	ignorePaths    []string
 	ignoreContents []string
@@ -20,6 +21,7 @@ var viewCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(viewCmd)
 
+	viewCmd.PersistentFlags().BoolVarP(&maskURL, "mask-url", "m", false, "mask urls in files")
 	viewCmd.PersistentFlags().BoolVarP(&copyToClipboard, "copy", "c", false, "copy result to clipboard")
 	viewCmd.PersistentFlags().BoolVarP(&stripComments, "strip-comments", "z", false, "remove comment lines")
 

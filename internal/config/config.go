@@ -18,7 +18,7 @@ type Git struct {
 func Load() (*Config, error) {
 	var cfg Config
 
-	err := cleanenv.ReadConfig("config.yml", &cfg)
+	err := cleanenv.ReadConfig("configs/config.yml", &cfg)
 	if err != nil {
 		return nil, err
 	}

@@ -1,11 +1,16 @@
 package transformer
 
-type Transformer interface {
-	Transform(path, content string) (string, error)
+type Result struct {
+	Name    string
+	Mapping map[string]string
 }
 
-type FuncTransformer func(path, content string) (string, error)
+type Transformer interface {
+	Transform(path, content string) (string, Result, error)
+}
 
-func (f FuncTransformer) Transform(path, content string) (string, error) {
+type FuncTransformer func(path, content string) (string, Result, error)
+
+func (f FuncTransformer) Transform(path, content string) (string, Result, error) {
 	return f(path, content)
 }

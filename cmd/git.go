@@ -1,18 +1,17 @@
 package cmd
 
 import (
-	"bytes"
 	"fmt"
-	"io/fs"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/atotto/clipboard"
 	"github.com/sangrita-tech/periscope/internal/config"
 	"github.com/sangrita-tech/periscope/internal/git"
 	"github.com/sangrita-tech/periscope/internal/matcher"
+	"github.com/sangrita-tech/periscope/internal/output"
+	"github.com/sangrita-tech/periscope/internal/scanner"
 	"github.com/sangrita-tech/periscope/internal/transformer"
+	"github.com/sangrita-tech/periscope/internal/transformer/transformers"
 
 	"github.com/spf13/cobra"
 )
@@ -34,7 +33,6 @@ var viewGitCmd = &cobra.Command{
 		}
 
 		g := git.New(&cfg.Git)
-
 		root, err := g.CloneRepo(repo, gitBranch)
 		if err != nil {
 			return fmt.Errorf("failed to clone repo: %w", err)
@@ -42,95 +40,31 @@ var viewGitCmd = &cobra.Command{
 
 		m := matcher.New(ignorePaths, ignoreContents)
 
-		pipeline := transformer.NewPipeline()
+		pipeline := transformer.New().
+			Add(transformers.CollapseEmptyLines())
+
 		if stripComments {
-			pipeline.Use(transformer.StripComments())
+			pipeline.Add(transformers.StripComments())
 		}
-		pipeline.Use(transformer.CollapseEmptyLines())
 
-		var (
-			buf       bytes.Buffer
-			firstFile = true
+		if maskURL {
+			pipeline.Add(transformers.MaskURL())
+		}
+
+		agg := output.NewAggregator(copyToClipboard, os.Stdout)
+
+		err = scanner.WalkProcessedFiles(
+			root,
+			m,
+			pipeline,
+			agg.HandleFile,
 		)
-
-		err = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-
-			if d.IsDir() {
-				if m.ShouldIgnorePath(path) {
-					return filepath.SkipDir
-				}
-				return nil
-			}
-
-			if m.ShouldIgnorePath(path) {
-				return nil
-			}
-
-			contentBytes, err := os.ReadFile(path)
-			if err != nil {
-				return err
-			}
-
-			if bytes.IndexByte(contentBytes, 0x00) != -1 {
-				return nil
-			}
-
-			content := string(contentBytes)
-
-			if m.ShouldIgnoreContent(content) {
-				return nil
-			}
-
-			content, err = pipeline.Process(path, content)
-			if err != nil {
-				return err
-			}
-
-			if strings.TrimSpace(content) == "" {
-				return nil
-			}
-
-			absPath, err := filepath.Abs(path)
-			if err != nil {
-				absPath = path
-			}
-
-			header := fmt.Sprintf("[FILE] %s\n\n", absPath)
-
-			if !copyToClipboard {
-				if !firstFile {
-					fmt.Println()
-				}
-
-				fmt.Print(header)
-				fmt.Print(content)
-				if !strings.HasSuffix(content, "\n") {
-					fmt.Println()
-				}
-			}
-
-			if !firstFile {
-				buf.WriteString("\n")
-			}
-			buf.WriteString(header)
-			buf.WriteString(content)
-			if !strings.HasSuffix(content, "\n") {
-				buf.WriteString("\n")
-			}
-
-			firstFile = false
-			return nil
-		})
-
 		if err != nil {
 			return err
 		}
 
 		if copyToClipboard {
-			if err := clipboard.WriteAll(buf.String()); err != nil {
+			if err := clipboard.WriteAll(agg.Result()); err != nil {
 				return fmt.Errorf("failed to copy to clipboard: %w", err)
 			}
 		}
