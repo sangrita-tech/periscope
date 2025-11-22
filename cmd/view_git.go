@@ -7,11 +7,11 @@ import (
 	"github.com/atotto/clipboard"
 	"github.com/sangrita-tech/periscope/internal/config"
 	"github.com/sangrita-tech/periscope/internal/git"
+
+	contentbuilder "github.com/sangrita-tech/periscope/internal/content_builder"
 	"github.com/sangrita-tech/periscope/internal/matcher"
-	"github.com/sangrita-tech/periscope/internal/output"
+	"github.com/sangrita-tech/periscope/internal/preprocess"
 	"github.com/sangrita-tech/periscope/internal/scanner"
-	"github.com/sangrita-tech/periscope/internal/transformer"
-	"github.com/sangrita-tech/periscope/internal/transformer/transformers"
 
 	"github.com/spf13/cobra"
 )
@@ -33,43 +33,50 @@ var viewGitCmd = &cobra.Command{
 		}
 
 		g := git.New(&cfg.Git)
-		root, err := g.CloneRepo(repo, gitBranch)
+		root, err := g.Fetch(repo, gitBranch)
 		if err != nil {
 			return fmt.Errorf("failed to clone repo: %w", err)
 		}
 
-		m := matcher.New(ignorePaths, ignoreContents)
+		var pathM *matcher.Matcher
+		if len(ignorePaths) > 0 {
+			pathM = matcher.New(ignorePaths)
+		}
 
-		pipeline := transformer.New().
-			Add(transformers.CollapseEmptyLines())
+		var contentM *matcher.Matcher
+		if len(ignoreContents) > 0 {
+			contentM = matcher.New(ignoreContents)
+		}
+
+		chain := preprocess.New().
+			AddCollapseEmptyLines()
 
 		if stripComments {
-			pipeline.Add(transformers.StripComments())
+			chain.AddStripComments()
 		}
 
 		if maskURL {
-			pipeline.Add(transformers.MaskURL())
+			chain.AddMaskURL()
 		}
 
-		agg := output.NewAggregator(copyToClipboard, os.Stdout)
+		builder := contentbuilder.New()
 
-		err = scanner.WalkProcessedFiles(
-			root,
-			m,
-			pipeline,
-			agg.HandleFile,
-		)
-		if err != nil {
+		s := scanner.New(root, pathM, contentM, chain, builder)
+		if err := s.Walk(); err != nil {
 			return err
 		}
 
+		result := builder.Result()
+
 		if copyToClipboard {
-			if err := clipboard.WriteAll(agg.Result()); err != nil {
+			if err := clipboard.WriteAll(result); err != nil {
 				return fmt.Errorf("failed to copy to clipboard: %w", err)
 			}
+			return nil
 		}
 
-		return nil
+		_, err = fmt.Fprint(os.Stdout, result)
+		return err
 	},
 }
 

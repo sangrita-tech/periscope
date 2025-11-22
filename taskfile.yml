@@ -1,0 +1,77 @@
+version: "3"
+
+vars:
+  GO: go
+  COVER_DIR: coverage
+  COVER_PROFILE: "{{.COVER_DIR}}/coverage.out"
+
+tasks:
+  default:
+    desc: Run format, tests, and show coverage
+    cmds:
+      - task: fmt
+      - task: test
+      - task: cover
+
+  fmt:
+    desc: Format code (gofmt)
+    cmds:
+      - "{{.GO}} fmt ./..."
+
+  tidy:
+    desc: Go mod tidy
+    cmds:
+      - "{{.GO}} mod tidy"
+
+  build:
+    desc: Build all packages
+    cmds:
+      - "{{.GO}} build ./..."
+
+  lint:
+    desc: Run golangci-lint (if installed)
+    cmds:
+      - golangci-lint run ./...
+    silent: false
+    ignore_error: true
+
+  test:
+    desc: Run all tests
+    cmds:
+      - "{{.GO}} test ./..."
+
+  test-race:
+    desc: Run all tests with race detector
+    cmds:
+      - "{{.GO}} test -race ./..."
+
+  cover:
+    desc: Run tests with coverage (overall)
+    cmds:
+      - "mkdir -p {{.COVER_DIR}}"
+      - "{{.GO}} test ./... -coverprofile={{.COVER_PROFILE}} -covermode=atomic"
+      - "{{.GO}} tool cover -func={{.COVER_PROFILE}}"
+
+  cover-html:
+    desc: Open HTML coverage report
+    cmds:
+      - "mkdir -p {{.COVER_DIR}}"
+      - "{{.GO}} test ./... -coverprofile={{.COVER_PROFILE}} -covermode=atomic"
+      - "{{.GO}} tool cover -html={{.COVER_PROFILE}} -o {{.COVER_DIR}}/index.html"
+      - 'echo "Coverage HTML written to {{.COVER_DIR}}/index.html"'
+
+  cover-pkgs:
+    desc: Show coverage per package/module
+    cmds:
+      - |
+        set -e
+        pkgs=$({{.GO}} list ./...)
+        echo "Per-package coverage:"
+        echo
+        for p in $pkgs; do
+          out="$(mktemp)"
+          {{.GO}} test "$p" -coverprofile="$out" -covermode=atomic >/dev/null
+          cov=$({{.GO}} tool cover -func="$out" | awk '/total:/ {print $3}')
+          printf "%-60s %s\n" "$p" "$cov"
+          rm -f "$out"
+        done

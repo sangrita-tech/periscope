@@ -1,29 +1,56 @@
 package scanner
 
 import (
+	"bufio"
 	"bytes"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
+	contentbuilder "github.com/sangrita-tech/periscope/internal/content_builder"
 	"github.com/sangrita-tech/periscope/internal/matcher"
-	"github.com/sangrita-tech/periscope/internal/transformer"
+	"github.com/sangrita-tech/periscope/internal/preprocess"
 )
 
-func WalkProcessedFiles(root string, matcher *matcher.Matcher, pipeline *transformer.Pipeline, handler func(path, content string) error) error {
-	return filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+type Scanner struct {
+	root           string
+	pathMatcher    *matcher.Matcher
+	contentMatcher *matcher.Matcher
+	chain          *preprocess.Chain
+	builder        *contentbuilder.ContentBuilder
+}
+
+func New(
+	root string,
+	pathMatcher *matcher.Matcher,
+	contentMatcher *matcher.Matcher,
+	chain *preprocess.Chain,
+	builder *contentbuilder.ContentBuilder,
+) *Scanner {
+	return &Scanner{
+		root:           root,
+		pathMatcher:    pathMatcher,
+		contentMatcher: contentMatcher,
+		chain:          chain,
+		builder:        builder,
+	}
+}
+
+func (s *Scanner) Walk() error {
+	return filepath.WalkDir(s.root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
 		if d.IsDir() {
-			if matcher.ShouldIgnorePath(path) {
+			if path != s.root && s.pathMatcher != nil && !s.pathMatcher.Match(path) {
 				return filepath.SkipDir
 			}
 			return nil
 		}
 
-		if matcher.ShouldIgnorePath(path) {
+		if s.pathMatcher != nil && !s.pathMatcher.Match(path) {
 			return nil
 		}
 
@@ -38,19 +65,39 @@ func WalkProcessedFiles(root string, matcher *matcher.Matcher, pipeline *transfo
 
 		content := string(contentBytes)
 
-		if matcher.ShouldIgnoreContent(content) {
+		if s.contentMatcher != nil {
+			sc := bufio.NewScanner(strings.NewReader(content))
+			for sc.Scan() {
+				line := sc.Text()
+				if s.contentMatcher.Match(line) {
+					return nil
+				}
+			}
+			if err := sc.Err(); err != nil {
+				return err
+			}
+		}
+
+		if s.chain != nil {
+			processed, _, err := s.chain.Process(path, content)
+			if err != nil {
+				return err
+			}
+			content = processed
+		}
+
+		if strings.TrimSpace(content) == "" {
 			return nil
 		}
 
-		processed, _, err := pipeline.Process(path, content)
-		if err != nil {
-			return err
+		if s.builder != nil {
+			absPath, err := filepath.Abs(path)
+			if err != nil {
+				absPath = path
+			}
+			return s.builder.AddBlock("[FILE] "+absPath, content)
 		}
 
-		if len(bytes.TrimSpace([]byte(processed))) == 0 {
-			return nil
-		}
-
-		return handler(path, processed)
+		return nil
 	})
 }

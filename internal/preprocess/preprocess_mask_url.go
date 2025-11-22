@@ -1,28 +1,29 @@
-package transformers
+package preprocess
 
 import (
 	"hash/fnv"
 	"strings"
 
-	"github.com/sangrita-tech/periscope/internal/transformer"
 	"mvdan.cc/xurls/v2"
 )
 
-type maskURLTransformer struct {
+type preprocessMaskURL struct {
 	fakeRootDomain string
 	mapping        map[string]string
-	counter        uint32
 }
 
-func MaskURL() transformer.Transformer {
-	return &maskURLTransformer{
+func newPreprocessMaskURL() Step {
+	return &preprocessMaskURL{
 		fakeRootDomain: "example.com",
 		mapping:        make(map[string]string, 32),
-		counter:        0,
 	}
 }
 
-func (t *maskURLTransformer) Transform(path, content string) (string, transformer.Result, error) {
+func (s *preprocessMaskURL) Name() string {
+	return "mask_url"
+}
+
+func (s *preprocessMaskURL) Apply(path, content string) (string, map[string]string, error) {
 	xurlsStrict := xurls.Strict()
 
 	out := xurlsStrict.ReplaceAllStringFunc(content, func(u string) string {
@@ -62,23 +63,19 @@ func (t *maskURLTransformer) Transform(path, content string) (string, transforme
 			return u
 		}
 
-		fakeDomain, ok := t.mapping[domain]
+		fake, ok := s.mapping[domain]
 		if !ok {
-			t.mapping[domain] = t.generateFakeDomain(domain)
+			fake = s.generateFakeDomain(domain)
+			s.mapping[domain] = fake
 		}
 
-		return u[:authorityStart] + strings.Replace(u[authorityStart:], domain, fakeDomain, 1)
+		return u[:authorityStart] + strings.Replace(u[authorityStart:], domain, fake, 1)
 	})
 
-	res := transformer.Result{
-		Name:    "mask_url",
-		Mapping: t.mapping,
-	}
-
-	return out, res, nil
+	return out, s.mapping, nil
 }
 
-func (t *maskURLTransformer) generateFakeDomain(domain string) string {
+func (s *preprocessMaskURL) generateFakeDomain(domain string) string {
 	const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
 	const base = uint32(len(alphabet))
 
@@ -92,5 +89,5 @@ func (t *maskURLTransformer) generateFakeDomain(domain string) string {
 		n /= base
 	}
 
-	return string(buf[:]) + "." + t.fakeRootDomain
+	return string(buf[:]) + "." + s.fakeRootDomain
 }
