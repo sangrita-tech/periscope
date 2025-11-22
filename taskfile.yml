@@ -75,3 +75,10 @@ tasks:
           printf "%-60s %s\n" "$p" "$cov"
           rm -f "$out"
         done
+
+  tag:*:
+    desc: "Create annotated git tag. Usage: task tag:1.2.3 (or tag:v1.2.3)."
+    cmds:
+      - |
+        git tag "{{index .MATCH 0}}"
+        git push --tags
