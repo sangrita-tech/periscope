@@ -102,7 +102,7 @@ func runViewScan(root string) (string, error) {
 				absPath = path
 			}
 
-			return builder.AddBlock("[FILE] "+absPath, content)
+			return builder.AddBlock(absPath, content)
 		},
 	}
 

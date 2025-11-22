@@ -20,18 +20,20 @@ var viewDirCmd = &cobra.Command{
 
 		result, err := runViewScan(root)
 		if err != nil {
-			return err
+			return runtimeErr(cmd, err)
 		}
 
 		if copyToClipboard {
 			if err := clipboard.WriteAll(result); err != nil {
-				return fmt.Errorf("failed to copy to clipboard: %w", err)
+				return runtimeErr(cmd, fmt.Errorf("failed to copy to clipboard: %w", err))
 			}
 			return nil
 		}
 
-		_, err = fmt.Fprint(os.Stdout, result)
-		return err
+		if _, err := fmt.Fprint(os.Stdout, result); err != nil {
+			return runtimeErr(cmd, err)
+		}
+		return nil
 	},
 }
 

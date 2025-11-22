@@ -3,6 +3,8 @@ package contentbuilder
 import (
 	"bytes"
 	"strings"
+
+	"github.com/sangrita-tech/periscope/internal/ui"
 )
 
 type ContentBuilder struct {
@@ -19,7 +21,7 @@ func (b *ContentBuilder) AddBlock(label, content string) error {
 		return nil
 	}
 
-	header := label + "\n\n"
+	header := ui.FileHeader.Sprintf("🧩 %s", label) + "\n\n"
 
 	if !b.first {
 		if err := b.writeString("\n"); err != nil {

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/sangrita-tech/periscope/internal/scanner"
+	"github.com/sangrita-tech/periscope/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -40,8 +41,15 @@ func makeTreeHandlers(buf *bytes.Buffer) scanner.Handlers {
 			branch = "└─ "
 		}
 
-		// Пишем в буфер
-		fmt.Fprintln(buf, prefix+branch+d.Name())
+		name := d.Name()
+		if d.IsDir() {
+			name = ui.DirStyle.Sprintf("📁 %s", name)
+		} else {
+			name = ui.FileStyle.Sprintf("📄 %s", name)
+		}
+
+		line := ui.Branch.Sprintf(prefix+branch) + name
+		fmt.Fprintln(buf, line)
 
 		if isLast {
 			prefixes[depth-1] = "   "
@@ -62,7 +70,6 @@ func makeTreeHandlers(buf *bytes.Buffer) scanner.Handlers {
 	}
 }
 
-// общий раннер дерева, возвращает строку
 func runTreeScan(root string) (string, error) {
 	pathM := buildPathMatcher()
 
@@ -73,8 +80,7 @@ func runTreeScan(root string) (string, error) {
 
 	var buf bytes.Buffer
 
-	// корень как в старой версии
-	fmt.Fprintln(&buf, filepath.Base(absRoot))
+	fmt.Fprintln(&buf, ui.Title.Sprintf("📦 %s", filepath.Base(absRoot)))
 
 	s := scanner.New(absRoot, pathM, makeTreeHandlers(&buf))
 	if err := s.Walk(); err != nil {
