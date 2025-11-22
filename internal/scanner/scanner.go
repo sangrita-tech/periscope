@@ -33,6 +33,7 @@ func (s *Scanner) Walk() error {
 	if err != nil {
 		absRoot = s.root
 	}
+	s.root = absRoot
 	return s.walkDir(absRoot, 0)
 }
 
@@ -48,7 +49,13 @@ func (s *Scanner) walkDir(dir string, depth int) error {
 	for _, e := range entries {
 		full := filepath.Join(dir, e.Name())
 
-		if s.pathMatcher != nil && !s.pathMatcher.Match(full) {
+		rel := full
+		if r, err := filepath.Rel(s.root, full); err == nil {
+			rel = r
+		}
+		relNorm := filepath.ToSlash(rel)
+
+		if s.pathMatcher != nil && s.pathMatcher.Match(relNorm) {
 			continue
 		}
 
@@ -69,11 +76,22 @@ func (s *Scanner) walkDir(dir string, depth int) error {
 		isLast := i == len(all)-1
 
 		if e.IsDir() {
+			rel := full
+			if r, err := filepath.Rel(s.root, full); err == nil {
+				rel = r
+			}
+			relNorm := filepath.ToSlash(rel)
+
+			if s.pathMatcher != nil && s.pathMatcher.Match(relNorm) {
+				continue
+			}
+
 			if s.handlers.OnDir != nil {
 				if err := s.handlers.OnDir(full, e, depth+1, isLast); err != nil {
 					return err
 				}
 			}
+
 			if err := s.walkDir(full, depth+1); err != nil {
 				return err
 			}
