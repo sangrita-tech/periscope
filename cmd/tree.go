@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"io/fs"
+	"path/filepath"
 	"strings"
 
 	"github.com/sangrita-tech/periscope/internal/scanner"
@@ -23,7 +25,7 @@ func init() {
 	treeCmd.PersistentFlags().StringSliceVarP(&ignoreContents, "ignore-content", "I", nil, "ignore files whose content matches pattern")
 }
 
-func makeTreeHandlers() scanner.Handlers {
+func makeTreeHandlers(buf *bytes.Buffer) scanner.Handlers {
 	prefixes := []string{}
 
 	onNode := func(d fs.DirEntry, depth int, isLast bool) {
@@ -38,7 +40,8 @@ func makeTreeHandlers() scanner.Handlers {
 			branch = "└─ "
 		}
 
-		fmt.Println(prefix + branch + d.Name())
+		// Пишем в буфер
+		fmt.Fprintln(buf, prefix+branch+d.Name())
 
 		if isLast {
 			prefixes[depth-1] = "   "
@@ -57,4 +60,26 @@ func makeTreeHandlers() scanner.Handlers {
 			return nil
 		},
 	}
+}
+
+// общий раннер дерева, возвращает строку
+func runTreeScan(root string) (string, error) {
+	pathM := buildPathMatcher()
+
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		absRoot = root
+	}
+
+	var buf bytes.Buffer
+
+	// корень как в старой версии
+	fmt.Fprintln(&buf, filepath.Base(absRoot))
+
+	s := scanner.New(absRoot, pathM, makeTreeHandlers(&buf))
+	if err := s.Walk(); err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
 }

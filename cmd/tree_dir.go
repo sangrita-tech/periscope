@@ -2,9 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	"path/filepath"
+	"os"
 
-	"github.com/sangrita-tech/periscope/internal/scanner"
+	"github.com/atotto/clipboard"
 	"github.com/spf13/cobra"
 )
 
@@ -18,17 +18,20 @@ var treeDirCmd = &cobra.Command{
 			root = args[0]
 		}
 
-		pathM := buildPathMatcher()
-
-		absRoot, err := filepath.Abs(root)
+		result, err := runTreeScan(root)
 		if err != nil {
-			absRoot = root
+			return err
 		}
 
-		fmt.Println(filepath.Base(absRoot))
+		if copyToClipboard {
+			if err := clipboard.WriteAll(result); err != nil {
+				return fmt.Errorf("failed to copy to clipboard: %w", err)
+			}
+			return nil
+		}
 
-		s := scanner.New(absRoot, pathM, makeTreeHandlers())
-		return s.Walk()
+		_, err = fmt.Fprint(os.Stdout, result)
+		return err
 	},
 }
 
