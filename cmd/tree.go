@@ -44,8 +44,6 @@ func makeTreeHandlers(buf *bytes.Buffer) scanner.Handlers {
 		name := d.Name()
 		if d.IsDir() {
 			name = ui.DirStyle.Sprintf("📁 %s", name)
-		} else {
-			name = ui.FileStyle.Sprintf("📄 %s", name)
 		}
 
 		line := ui.Branch.Sprintf(prefix+branch) + name

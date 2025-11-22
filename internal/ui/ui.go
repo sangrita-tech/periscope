@@ -9,19 +9,16 @@ import (
 )
 
 var (
-	Title   = color.New(color.FgCyan, color.Bold)
-	Info    = color.New(color.FgHiBlue)
-	Success = color.New(color.FgHiGreen)
-	Warn    = color.New(color.FgHiYellow)
-	Error   = color.New(color.FgHiRed, color.Bold)
-
-	Dim = color.New(color.Faint)
-
-	DirStyle  = color.New(color.FgHiCyan, color.Bold)
-	FileStyle = color.New(color.FgWhite)
-	Branch    = color.New(color.FgHiBlack)
-
-	FileHeader = color.New(color.FgMagenta, color.Bold)
+	Title      = color.New(color.FgHiMagenta, color.Bold)
+	Info       = color.New(color.FgMagenta)
+	Success    = color.New(color.FgHiCyan, color.Bold)
+	Warn       = color.New(color.FgHiMagenta)
+	Error      = color.New(color.FgMagenta, color.Bold)
+	Dim        = color.New(color.FgHiBlack)
+	DirStyle   = color.New(color.FgHiMagenta, color.Bold)
+	FileStyle  = color.New(color.FgHiWhite)
+	Branch     = color.New(color.FgHiBlack)
+	FileHeader = color.New(color.FgHiMagenta, color.Bold)
 )
 
 type Logger struct {

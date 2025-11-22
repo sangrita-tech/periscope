@@ -77,7 +77,6 @@ func withFakeGitSuccessOnly(t *testing.T) func() {
 
 	assert.NoError(t, os.WriteFile(path, []byte(script), 0o755))
 
-	// ВАЖНО: заменяем PATH полностью, а не добавляем!
 	oldPath := os.Getenv("PATH")
 	assert.NoError(t, os.Setenv("PATH", dir))
 
