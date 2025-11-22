@@ -2,22 +2,17 @@ package cmd
 
 import (
 	"fmt"
-	"os"
+	"path/filepath"
 
-	"github.com/atotto/clipboard"
 	"github.com/sangrita-tech/periscope/internal/config"
 	"github.com/sangrita-tech/periscope/internal/git"
-
+	"github.com/sangrita-tech/periscope/internal/scanner"
 	"github.com/spf13/cobra"
 )
 
-var (
-	gitBranch string
-)
-
-var viewGitCmd = &cobra.Command{
+var treeGitCmd = &cobra.Command{
 	Use:   "git [repo]",
-	Short: "Clone and view contents of a Git repository",
+	Short: "Clone repo and print its tree",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		repo := args[0]
@@ -33,31 +28,28 @@ var viewGitCmd = &cobra.Command{
 			return fmt.Errorf("failed to clone repo: %w", err)
 		}
 
-		result, err := runViewScan(root)
+		pathM := buildPathMatcher()
+
+		absRoot, err := filepath.Abs(root)
 		if err != nil {
-			return err
+			absRoot = root
 		}
 
-		if copyToClipboard {
-			if err := clipboard.WriteAll(result); err != nil {
-				return fmt.Errorf("failed to copy to clipboard: %w", err)
-			}
-			return nil
-		}
+		fmt.Println(filepath.Base(absRoot))
 
-		_, err = fmt.Fprint(os.Stdout, result)
-		return err
+		s := scanner.New(absRoot, pathM, makeTreeHandlers())
+		return s.Walk()
 	},
 }
 
 func init() {
-	viewCmd.AddCommand(viewGitCmd)
+	treeCmd.AddCommand(treeGitCmd)
 
-	viewGitCmd.Flags().StringVarP(
+	treeGitCmd.Flags().StringVarP(
 		&gitBranch,
 		"branch",
 		"b",
 		"",
-		"Git branch to view (default: repository default branch)",
+		"Git branch to use (default: repository default branch)",
 	)
 }

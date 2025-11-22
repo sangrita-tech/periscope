@@ -5,10 +5,6 @@ import (
 	"os"
 
 	"github.com/atotto/clipboard"
-	contentbuilder "github.com/sangrita-tech/periscope/internal/content_builder"
-	"github.com/sangrita-tech/periscope/internal/matcher"
-	"github.com/sangrita-tech/periscope/internal/preprocess"
-	"github.com/sangrita-tech/periscope/internal/scanner"
 	"github.com/spf13/cobra"
 )
 
@@ -22,35 +18,10 @@ var viewDirCmd = &cobra.Command{
 			root = args[0]
 		}
 
-		var pathM *matcher.Matcher
-		if len(ignorePaths) > 0 {
-			pathM = matcher.New(ignorePaths)
-		}
-
-		var contentM *matcher.Matcher
-		if len(ignoreContents) > 0 {
-			contentM = matcher.New(ignoreContents)
-		}
-
-		chain := preprocess.New().
-			AddCollapseEmptyLines()
-
-		if stripComments {
-			chain.AddStripComments()
-		}
-
-		if maskURL {
-			chain.AddMaskURL()
-		}
-
-		builder := contentbuilder.New()
-
-		s := scanner.New(root, pathM, contentM, chain, builder)
-		if err := s.Walk(); err != nil {
+		result, err := runViewScan(root)
+		if err != nil {
 			return err
 		}
-
-		result := builder.Result()
 
 		if copyToClipboard {
 			if err := clipboard.WriteAll(result); err != nil {
@@ -59,7 +30,7 @@ var viewDirCmd = &cobra.Command{
 			return nil
 		}
 
-		_, err := fmt.Fprint(os.Stdout, result)
+		_, err = fmt.Fprint(os.Stdout, result)
 		return err
 	},
 }

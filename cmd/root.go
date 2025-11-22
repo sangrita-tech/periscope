@@ -5,7 +5,12 @@ import (
 )
 
 var (
-	Version = "dev"
+	Version         = "dev"
+	copyToClipboard bool
+	stripComments   bool
+	maskURL         bool
+	ignorePaths     []string
+	ignoreContents  []string
 )
 
 var rootCmd = &cobra.Command{
