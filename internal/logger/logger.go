@@ -20,15 +20,8 @@ const (
 	devTimeFormat  = "2006-01-02 15:04:05"
 )
 
-func New(cfg *config.Logger) (*zerolog.Logger, error) {
-	if cfg == nil {
-		cfg = &config.Logger{}
-	}
-
-	level, err := parseLevel(cfg.Level)
-	if err != nil {
-		return nil, err
-	}
+func New(cfg *config.Logger) zerolog.Logger {
+	level := parseLevel(cfg.Level)
 
 	zerolog.TimestampFieldName = timestampField
 	zerolog.TimestampFunc = func() time.Time {
@@ -46,7 +39,7 @@ func New(cfg *config.Logger) (*zerolog.Logger, error) {
 	}
 
 	logger := ctx.Logger()
-	return &logger, nil
+	return logger
 }
 
 type devWriter struct {
@@ -160,17 +153,17 @@ func asString(value any) string {
 	return fmt.Sprintf("%v", value)
 }
 
-func parseLevel(level string) (zerolog.Level, error) {
+func parseLevel(level string) zerolog.Level {
 	switch strings.ToLower(level) {
 	case "", "info":
-		return zerolog.InfoLevel, nil
+		return zerolog.InfoLevel
 	case "debug":
-		return zerolog.DebugLevel, nil
+		return zerolog.DebugLevel
 	case "warn", "warning":
-		return zerolog.WarnLevel, nil
+		return zerolog.WarnLevel
 	case "error":
-		return zerolog.ErrorLevel, nil
+		return zerolog.ErrorLevel
 	default:
-		return zerolog.NoLevel, fmt.Errorf("unsupported logger level %q", level)
+		return zerolog.InfoLevel
 	}
 }

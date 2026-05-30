@@ -2,19 +2,13 @@ package config
 
 import (
 	"fmt"
-	"time"
+	"os"
 
-	"github.com/ilyakaznacheev/cleanenv"
+	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	Git    Git    `yaml:"git"`
 	Logger Logger `yaml:"logger"`
-}
-
-type Git struct {
-	CacheRoot  string        `yaml:"cacheRoot"`
-	MaxRepoAge time.Duration `yaml:"maxRepoAge"`
 }
 
 type Logger struct {
@@ -23,11 +17,16 @@ type Logger struct {
 	BaseFields map[string]string `yaml:"baseFields"`
 }
 
-func ReadConfigFile(path string) (*Config, error) {
-	var cfg Config
-	err := cleanenv.ReadConfig(path, &cfg)
+func ReadConfig(path string) (*Config, error) {
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
+		return nil, fmt.Errorf("read config: %w", err)
 	}
+
+	var cfg Config
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("parse config: %w", err)
+	}
+
 	return &cfg, nil
 }
