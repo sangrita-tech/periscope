@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/sangrita-tech/periscope/internal/domain"
 )
@@ -20,12 +21,13 @@ func (r *Renderer) Render(files []domain.Entry) string {
 
 	var buffer bytes.Buffer
 
+	buffer.WriteString("# Periscoped project " + time.Now().Format("2006-01-02 15:04:05") + "\n\n")
+
 	for _, file := range files {
-		buffer.WriteString("========== ")
-		buffer.WriteString(file.RelPath)
-		buffer.WriteString(" ==========\n\n")
+		buffer.WriteString("## " + file.RelPath + "\n\n")
+		buffer.WriteString("```\n")
 		buffer.Write(file.Data)
-		buffer.WriteString("\n")
+		buffer.WriteString("```\n\n")
 	}
 
 	bufferString := buffer.String()
