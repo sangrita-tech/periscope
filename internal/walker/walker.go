@@ -6,12 +6,19 @@ import (
 	"strings"
 
 	"github.com/sangrita-tech/periscope/internal/domain"
+	"github.com/sangrita-tech/periscope/internal/ignore"
 )
 
-type Walker struct{}
+type Walker struct {
+	ignore *ignore.Matcher
+}
 
-func New() *Walker {
-	return &Walker{}
+func New(matcher *ignore.Matcher) *Walker {
+	w := &Walker{
+		ignore: matcher,
+	}
+
+	return w
 }
 
 func (w *Walker) Walk(source domain.Source) ([]domain.Entry, error) {
@@ -22,7 +29,18 @@ func (w *Walker) Walk(source domain.Source) ([]domain.Entry, error) {
 			return walkErr
 		}
 
+		currentPath = path.Clean(currentPath)
+		relPath := makeRelPath(source.Root, currentPath)
+
 		if dirEntry.IsDir() {
+			if relPath != "" && w.shouldIgnore(relPath, true) {
+				return fs.SkipDir
+			}
+
+			return nil
+		}
+
+		if w.shouldIgnore(relPath, false) {
 			return nil
 		}
 
@@ -30,9 +48,6 @@ func (w *Walker) Walk(source domain.Source) ([]domain.Entry, error) {
 		if err != nil {
 			return err
 		}
-
-		currentPath = path.Clean(currentPath)
-		relPath := strings.TrimPrefix(path.Clean(strings.TrimPrefix(currentPath, source.Root)), "/")
 
 		entry := domain.Entry{
 			Path:    currentPath,
@@ -55,4 +70,18 @@ func (w *Walker) Walk(source domain.Source) ([]domain.Entry, error) {
 	}
 
 	return entries, nil
+}
+
+func (w *Walker) shouldIgnore(relPath string, isDir bool) bool {
+	return w.ignore != nil && w.ignore.Match(relPath, isDir)
+}
+
+func makeRelPath(root, currentPath string) string {
+	root = path.Clean(root)
+	currentPath = path.Clean(currentPath)
+
+	relPath := strings.TrimPrefix(currentPath, root)
+	relPath = strings.TrimPrefix(relPath, "/")
+
+	return relPath
 }

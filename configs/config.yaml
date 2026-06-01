@@ -1,3 +1,2 @@
-logger:
-  level: info
-  devMode: true
+ignore:
+  - .git

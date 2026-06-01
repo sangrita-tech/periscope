@@ -1,10 +1,12 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
 	"github.com/sangrita-tech/periscope/internal/config"
+	"github.com/sangrita-tech/periscope/internal/ignore"
 	"github.com/sangrita-tech/periscope/internal/output"
 	"github.com/sangrita-tech/periscope/internal/render"
 	"github.com/sangrita-tech/periscope/internal/source"
@@ -16,6 +18,7 @@ const baseConfigPath = "~/.periscope.yml"
 
 type options struct {
 	configPath string
+	ignore     []string
 	tree       bool
 	copy       bool
 	version    string
@@ -42,7 +45,8 @@ func Execute(version string) error {
 		},
 	}
 
-	cmd.Flags().StringVar(&opts.configPath, "config", "", "YML config")
+	cmd.Flags().StringVar(&opts.configPath, "config", "", "YAML config path")
+	cmd.Flags().StringArrayVarP(&opts.ignore, "ignore", "i", nil, "ignore file or directory pattern (repeatable)")
 	cmd.Flags().BoolVarP(&opts.tree, "tree", "t", false, "print only the file tree")
 	cmd.Flags().BoolVarP(&opts.copy, "copy", "c", false, "copy the result to the clipboard")
 
@@ -57,14 +61,25 @@ func Execute(version string) error {
 }
 
 func run(opts options, target string) error {
-	initConfig()
+	cfg, err := initConfig(opts.configPath)
+	if err != nil {
+		return fmt.Errorf("read config: %w", err)
+	}
+
+	ignorePatterns := append([]string{}, cfg.Ignore...)
+	ignorePatterns = append(ignorePatterns, opts.ignore...)
+
+	ignoreMatcher, err := ignore.NewMatcher(ignorePatterns)
+	if err != nil {
+		return fmt.Errorf("build ignore matcher: %w", err)
+	}
 
 	s, err := source.ResolveSource(target)
 	if err != nil {
 		return fmt.Errorf("resolve source: %w", err)
 	}
 
-	w := walker.New()
+	w := walker.New(ignoreMatcher)
 
 	entries, err := w.Walk(s)
 	if err != nil {
@@ -93,10 +108,19 @@ func run(opts options, target string) error {
 	return nil
 }
 
-func initConfig() *config.Config {
+func initConfig(configPath string) (*config.Config, error) {
+	if configPath != "" {
+		return config.ReadConfig(configPath)
+	}
+
 	cfg, err := config.ReadConfig(baseConfigPath)
 	if err != nil {
-		return &config.Config{}
+		if errors.Is(err, os.ErrNotExist) {
+			return &config.Config{}, nil
+		}
+
+		return nil, err
 	}
-	return cfg
+
+	return cfg, nil
 }
