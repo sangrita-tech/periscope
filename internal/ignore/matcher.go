@@ -8,50 +8,35 @@ import (
 )
 
 type Matcher struct {
-	rules []rule
-}
-
-type rule struct {
-	raw           string
-	pathPattern   string
-	directoryOnly bool
-	glob          *regexp.Regexp
-	regex         *regexp.Regexp
+	globs []*regexp.Regexp
 }
 
 func NewMatcher(patterns []string) (*Matcher, error) {
-	rules := make([]rule, 0, len(patterns))
+	globs := make([]*regexp.Regexp, 0)
 
 	for _, pattern := range patterns {
-		r, ok, err := newRule(pattern)
+		glob, err := compilePattern(pattern)
 		if err != nil {
 			return nil, err
 		}
-
-		if !ok {
-			continue
-		}
-
-		rules = append(rules, r)
+		globs = append(globs, glob)
 	}
 
-	return &Matcher{rules: rules}, nil
+	return &Matcher{globs: globs}, nil
 }
 
-func (m *Matcher) Match(relPath string, isDir bool) bool {
-	if m == nil || len(m.rules) == 0 {
+func (m *Matcher) Match(target string) bool {
+	if len(m.globs) == 0 {
 		return false
 	}
 
-	relPath = cleanPath(relPath)
-	if relPath == "" || relPath == "." {
+	target = path.Clean(target)
+	if target == "" || target == "." {
 		return false
 	}
 
-	base := path.Base(relPath)
-
-	for _, r := range m.rules {
-		if r.matches(relPath, base, isDir) {
+	for _, glob := range m.globs {
+		if glob.MatchString(target) {
 			return true
 		}
 	}
@@ -59,160 +44,43 @@ func (m *Matcher) Match(relPath string, isDir bool) bool {
 	return false
 }
 
-func newRule(pattern string) (rule, bool, error) {
-	pattern = strings.TrimSpace(pattern)
-	if pattern == "" {
-		return rule{}, false, nil
+func compilePattern(pattern string) (*regexp.Regexp, error) {
+	pattern = path.Clean(pattern)
+
+	if hasGlobMeta(pattern) {
+		return compileGlob(pattern)
 	}
 
-	r := rule{raw: pattern}
-
-	r.directoryOnly = strings.HasSuffix(pattern, "/") || strings.HasSuffix(pattern, "\\")
-	r.pathPattern = cleanPatternPath(pattern)
-
-	if hasGlobMeta(r.pathPattern) {
-		glob, err := compileGlob(r.pathPattern)
-		if err != nil {
-			return rule{}, false, fmt.Errorf("compile ignore glob %q: %w", pattern, err)
-		}
-
-		r.glob = glob
-	}
-
-	if shouldCompileRegex(pattern) {
-		reText := strings.ReplaceAll(pattern, `\|`, "|")
-		reText = strings.ReplaceAll(reText, "\\", "/")
-
-		re, err := regexp.Compile(reText)
-		if err != nil {
-			return rule{}, false, fmt.Errorf("compile ignore regexp %q: %w", pattern, err)
-		}
-
-		r.regex = re
-	}
-
-	return r, true, nil
+	return compilePlain(pattern)
 }
 
-func (r rule) matches(relPath, base string, isDir bool) bool {
-	if r.directoryOnly && !isDir && !isInDirectory(relPath, r.pathPattern) {
-		return false
-	}
-
-	if r.matchesPath(relPath, base) {
-		return true
-	}
-
-	if r.glob != nil && (r.glob.MatchString(relPath) || r.glob.MatchString(base)) {
-		return true
-	}
-
-	if r.regex != nil && (r.regex.MatchString(relPath) || r.regex.MatchString(base)) {
-		return true
-	}
-
-	return false
-}
-
-func (r rule) matchesPath(relPath, base string) bool {
-	pattern := r.pathPattern
-	if pattern == "" || pattern == "." || hasGlobMeta(pattern) {
-		return false
-	}
-
-	if relPath == pattern || base == pattern {
-		return true
-	}
+func compilePlain(pattern string) (*regexp.Regexp, error) {
+	pattern = regexp.QuoteMeta(pattern)
 
 	if strings.Contains(pattern, "/") {
-		return isDescendantOf(relPath, pattern)
+		return regexp.Compile("^" + pattern + "(/.*)?$")
 	}
 
-	return hasPathSegment(relPath, pattern)
+	return regexp.Compile("(^|/)" + pattern + "(/|$)")
 }
 
-func hasPathSegment(relPath, segment string) bool {
-	for _, part := range strings.Split(relPath, "/") {
-		if part == segment {
-			return true
-		}
+func compileGlob(pattern string) (*regexp.Regexp, error) {
+	glob := globToRegexp(pattern)
+
+	if !strings.Contains(pattern, "/") {
+		glob = "(.*/)?" + glob
 	}
 
-	return false
-}
-
-func isInDirectory(relPath, dirPath string) bool {
-	dirPath = strings.TrimSuffix(cleanPath(dirPath), "/")
-	if dirPath == "" || dirPath == "." {
-		return false
+	re, err := regexp.Compile("^" + glob + "$")
+	if err != nil {
+		return nil, fmt.Errorf("compile ignore glob %q: %w", pattern, err)
 	}
 
-	if strings.Contains(dirPath, "/") {
-		return isDescendantOf(relPath, dirPath)
-	}
-
-	parts := strings.Split(relPath, "/")
-	for _, part := range parts[:len(parts)-1] {
-		if part == dirPath {
-			return true
-		}
-	}
-
-	return false
-}
-
-func isDescendantOf(relPath, dirPath string) bool {
-	dirPath = strings.TrimSuffix(cleanPath(dirPath), "/")
-	if dirPath == "" || dirPath == "." {
-		return false
-	}
-
-	return strings.HasPrefix(relPath, dirPath+"/")
-}
-
-func cleanPath(value string) string {
-	value = strings.TrimSpace(value)
-	value = strings.ReplaceAll(value, "\\", "/")
-	value = strings.TrimPrefix(value, "./")
-	value = strings.TrimLeft(value, "/")
-	value = path.Clean(value)
-
-	if value == "." {
-		return ""
-	}
-
-	return value
-}
-
-func cleanPatternPath(value string) string {
-	value = strings.TrimSpace(value)
-	value = strings.TrimSuffix(value, "/")
-	value = strings.TrimSuffix(value, "\\")
-
-	value = strings.ReplaceAll(value, `\|`, "|")
-	value = strings.ReplaceAll(value, "\\", "/")
-
-	value = strings.TrimPrefix(value, "./")
-	value = strings.TrimLeft(value, "/")
-	value = path.Clean(value)
-
-	if value == "." {
-		return ""
-	}
-
-	return value
+	return re, nil
 }
 
 func hasGlobMeta(pattern string) bool {
 	return strings.ContainsAny(pattern, "*?[")
-}
-
-func shouldCompileRegex(pattern string) bool {
-	return strings.Contains(pattern, `\|`) || strings.ContainsAny(pattern, "|()[]^$+") || strings.Contains(pattern, `\\`)
-}
-
-func compileGlob(pattern string) (*regexp.Regexp, error) {
-	return regexp.Compile("^" + globToRegexp(pattern) + "$")
 }
 
 func globToRegexp(pattern string) string {
@@ -225,7 +93,7 @@ func globToRegexp(pattern string) string {
 		case '*':
 			if i+1 < len(pattern) && pattern[i+1] == '*' {
 				if i+2 < len(pattern) && pattern[i+2] == '/' {
-					b.WriteString("(?:.*/)?")
+					b.WriteString("(.*/)?")
 					i += 2
 					continue
 				}
@@ -236,8 +104,10 @@ func globToRegexp(pattern string) string {
 			}
 
 			b.WriteString("[^/]*")
+
 		case '?':
 			b.WriteString("[^/]")
+
 		case '[':
 			end := strings.IndexByte(pattern[i+1:], ']')
 			if end == -1 {
@@ -248,6 +118,7 @@ func globToRegexp(pattern string) string {
 			class := pattern[i : i+end+2]
 			b.WriteString(class)
 			i += end + 1
+
 		default:
 			b.WriteString(regexp.QuoteMeta(string(ch)))
 		}
