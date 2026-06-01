@@ -35,5 +35,3 @@ periscope . -t
 ```bash
 periscope https://github.com/sangrita-tech/periscope -i ".git" -i "coverage"
 ```
-
-Output file blocks start with `[FILE]` and use paths relative to the directory where the command is called.
