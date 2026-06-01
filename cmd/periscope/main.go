@@ -2,10 +2,15 @@ package main
 
 import (
 	"flag"
+	"os"
 
 	"github.com/rs/zerolog/log"
 	"github.com/sangrita-tech/periscope/internal/config"
 	"github.com/sangrita-tech/periscope/internal/logger"
+	"github.com/sangrita-tech/periscope/internal/output"
+	"github.com/sangrita-tech/periscope/internal/render"
+	"github.com/sangrita-tech/periscope/internal/source"
+	"github.com/sangrita-tech/periscope/internal/walker"
 )
 
 var Version = "dev"
@@ -27,6 +32,22 @@ func main() {
 	log.Logger = l
 
 	log.Info().Msg("Starting periscope")
+
+	s, err := source.ResolveSource("C:\\Projects\\periscope\\cmd\\periscope\\main.go")
+
+	walker := walker.New()
+	entries, err := walker.Walk(s)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to walk directory")
+	}
+
+	renderer := render.NewRenderer()
+	out := renderer.Render(entries)
+
+	w := output.NewTerminalWriter(os.Stdout)
+	err = w.Write(out)
+
+	log.Info().Int("num_entries", len(entries)).Msg("Finished walking directory")
 
 	log.Info().Msg("Periscope stopped")
 }

@@ -8,3 +8,8 @@ type Entry struct {
 	Data    []byte
 	Meta    fs.FileInfo
 }
+
+type Source struct {
+	Fsys fs.FS
+	Root string
+}

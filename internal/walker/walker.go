@@ -13,12 +13,10 @@ func New() *Walker {
 	return &Walker{}
 }
 
-func (w *Walker) Walk(fsys fs.FS, root string) ([]domain.Entry, error) {
-	root = path.Clean(root)
-
+func (w *Walker) Walk(source domain.Source) ([]domain.Entry, error) {
 	var entries []domain.Entry
 
-	err := fs.WalkDir(fsys, root, func(currentPath string, dirEntry fs.DirEntry, walkErr error) error {
+	err := fs.WalkDir(source.Fsys, source.Root, func(currentPath string, dirEntry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -32,7 +30,7 @@ func (w *Walker) Walk(fsys fs.FS, root string) ([]domain.Entry, error) {
 			return err
 		}
 
-		data, err := fs.ReadFile(fsys, currentPath)
+		data, err := fs.ReadFile(source.Fsys, currentPath)
 		if err != nil {
 			return err
 		}
