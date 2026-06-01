@@ -1,4 +1,4 @@
-package domain
+package model
 
 import "io/fs"
 
@@ -9,8 +9,7 @@ type Entry struct {
 	Meta    fs.FileInfo
 }
 
-type Source struct {
-	Fsys fs.FS
-	Root string
-	Name string
+type Replacement struct {
+	Pattern string `yaml:"pattern"`
+	Value   string `yaml:"value"`
 }
