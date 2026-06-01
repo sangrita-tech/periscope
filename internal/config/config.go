@@ -8,13 +8,6 @@ import (
 )
 
 type Config struct {
-	Logger Logger `yaml:"logger"`
-}
-
-type Logger struct {
-	Level      string            `yaml:"level"`
-	DevMode    bool              `yaml:"devMode"`
-	BaseFields map[string]string `yaml:"baseFields"`
 }
 
 func ReadConfig(path string) (*Config, error) {

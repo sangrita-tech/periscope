@@ -5,5 +5,5 @@ import (
 )
 
 type Renderer interface {
-	Render(entries []domain.Entry) string
+	Render(source domain.Source, entries []domain.Entry) string
 }
