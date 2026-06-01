@@ -94,6 +94,7 @@ func run(opts options, target string) error {
 	}
 
 	result := r.Render(s, entries)
+	result = cfg.ApplyReplacements(result)
 
 	if err := output.NewTerminalWriter(os.Stdout).Write(result); err != nil {
 		return fmt.Errorf("write terminal output: %w", err)

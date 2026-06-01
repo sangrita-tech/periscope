@@ -10,7 +10,29 @@ import (
 )
 
 type Config struct {
-	Ignore []string `yaml:"ignore"`
+	Ignore  []string      `yaml:"ignore"`
+	Replace []Replacement `yaml:"replace"`
+}
+
+type Replacement struct {
+	Pattern string `yaml:"pattern"`
+	Value   string `yaml:"value"`
+}
+
+func (cfg *Config) ApplyReplacements(value string) string {
+	if cfg == nil || len(cfg.Replace) == 0 {
+		return value
+	}
+
+	for _, replacement := range cfg.Replace {
+		if replacement.Pattern == "" {
+			continue
+		}
+
+		value = strings.ReplaceAll(value, replacement.Pattern, replacement.Value)
+	}
+
+	return value
 }
 
 func ReadConfig(path string) (*Config, error) {
