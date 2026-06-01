@@ -3,6 +3,7 @@ package walker
 import (
 	"io/fs"
 	"path"
+	"strings"
 
 	"github.com/sangrita-tech/periscope/internal/domain"
 )
@@ -30,19 +31,21 @@ func (w *Walker) Walk(source domain.Source) ([]domain.Entry, error) {
 			return err
 		}
 
-		data, err := fs.ReadFile(source.Fsys, currentPath)
-		if err != nil {
-			return err
+		currentPath = path.Clean(currentPath)
+		relPath := strings.TrimPrefix(path.Clean(strings.TrimPrefix(currentPath, source.Root)), "/")
+
+		entry := domain.Entry{
+			Path:    currentPath,
+			RelPath: relPath,
+			Meta:    meta,
 		}
 
-		currentPath = path.Clean(currentPath)
+		data, err := fs.ReadFile(source.Fsys, currentPath)
+		if err == nil {
+			entry.Data = data
+		}
 
-		entries = append(entries, domain.Entry{
-			Path:    currentPath,
-			RelPath: currentPath,
-			Data:    data,
-			Meta:    meta,
-		})
+		entries = append(entries, entry)
 
 		return nil
 	})

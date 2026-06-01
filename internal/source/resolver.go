@@ -3,6 +3,7 @@ package source
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -50,6 +51,7 @@ func resolveLocalSource(target string) (domain.Source, error) {
 	return domain.Source{
 		Fsys: os.DirFS(parent),
 		Root: filepath.ToSlash(base),
+		Name: base,
 	}, nil
 }
 
@@ -57,7 +59,7 @@ func resolveGitSource(target string) (domain.Source, error) {
 	mux := fsimpl.NewMux()
 	mux.Add(gitfs.FS)
 
-	fsys, err := mux.Lookup("git+https://github.com/hairyhenderson/go-fsimpl")
+	fsys, err := mux.Lookup(makeGitTarget(target))
 	if err != nil {
 		return domain.Source{}, fmt.Errorf("lookup git filesystem: %w", err)
 	}
@@ -65,5 +67,28 @@ func resolveGitSource(target string) (domain.Source, error) {
 	return domain.Source{
 		Fsys: fsys,
 		Root: root,
+		Name: getRemoteSourceName(target),
 	}, nil
+}
+
+func makeGitTarget(target string) string {
+	if strings.HasPrefix(target, "git+") {
+		return target
+	}
+
+	return "git+" + target
+}
+
+func getRemoteSourceName(target string) string {
+	target = strings.TrimSpace(target)
+	target = strings.TrimPrefix(target, "git+")
+	target = strings.TrimSuffix(target, "/")
+	target = strings.TrimSuffix(target, ".git")
+	target = strings.ReplaceAll(target, "\\", "/")
+
+	if target == "" || target == "." {
+		return root
+	}
+
+	return path.Base(target)
 }

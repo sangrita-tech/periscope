@@ -16,15 +16,15 @@ func NewContentRenderer() *ContentRenderer {
 	return &ContentRenderer{}
 }
 
-func (r *ContentRenderer) Render(entries []domain.Entry) string {
+func (r *ContentRenderer) Render(source domain.Source, entries []domain.Entry) string {
 	r.sortEntries(entries)
 
 	var buffer bytes.Buffer
 
-	buffer.WriteString("# Periscoped project " + time.Now().Format("2006-01-02 15:04:05") + "\n\n")
+	buffer.WriteString("# Periscoped project " + source.Name + " " + time.Now().Format("2006-01-02 15:04:05") + "\n\n")
 
 	for _, entry := range entries {
-		buffer.WriteString("## " + entry.RelPath + "\n\n")
+		buffer.WriteString("## " + source.Name + "/" + entry.RelPath + "\n\n")
 		buffer.WriteString("```\n")
 		buffer.Write(entry.Data)
 		buffer.WriteString("```\n\n")

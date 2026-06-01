@@ -33,7 +33,7 @@ func main() {
 
 	log.Info().Msg("Starting periscope")
 
-	s, err := source.ResolveSource("https://github.com/pocket-id/pocket-id.git")
+	s, err := source.ResolveSource(".")
 
 	walker := walker.New()
 	entries, err := walker.Walk(s)
@@ -41,8 +41,8 @@ func main() {
 		log.Fatal().Err(err).Msg("Failed to walk directory")
 	}
 
-	r := render.NewTreeRenderer()
-	out := r.Render(entries)
+	r := render.NewContentRenderer()
+	out := r.Render(s, entries)
 
 	w := output.NewTerminalWriter(os.Stdout)
 	output.NewClipboardWriter()

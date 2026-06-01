@@ -22,12 +22,17 @@ func NewTreeRenderer() *TreeRenderer {
 	return &TreeRenderer{}
 }
 
-func (r *TreeRenderer) Render(entries []domain.Entry) string {
-	root := newTreeNode(".")
+func (r *TreeRenderer) Render(source domain.Source, entries []domain.Entry) string {
+	root := newTreeNode(source.Name)
 
 	for _, entry := range entries {
-		parts := strings.Split(entry.RelPath, "/")
+		relPath := entry.RelPath
+		if relPath == "" || relPath == "." {
+			root.isFile = true
+			continue
+		}
 
+		parts := strings.Split(relPath, "/")
 		current := root
 
 		for index, part := range parts {
@@ -51,20 +56,17 @@ func (r *TreeRenderer) Render(entries []domain.Entry) string {
 
 	var buffer bytes.Buffer
 
-	buffer.WriteString("# Periscoped project " + time.Now().Format("2006-01-02 15:04:05") + "\n\n")
-
-	children := sortedTreeChildren(root)
+	buffer.WriteString("# Periscoped project " + root.name + " " + time.Now().Format("2006-01-02 15:04:05") + "\n\n")
 
 	buffer.WriteString("```\n")
+	buffer.WriteString(root.name)
 
-	if len(children) == 1 && !children[0].isFile {
-		buffer.WriteString(children[0].name)
-		buffer.WriteString("/\n")
-		writeTree(&buffer, children[0], "")
-	} else {
-		writeTree(&buffer, root, "")
+	if !root.isFile {
+		buffer.WriteString("/")
 	}
 
+	buffer.WriteString("\n")
+	writeTree(&buffer, root, "")
 	buffer.WriteString("```\n\n")
 
 	return buffer.String()

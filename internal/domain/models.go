@@ -12,4 +12,5 @@ type Entry struct {
 type Source struct {
 	Fsys fs.FS
 	Root string
+	Name string
 }
