@@ -35,3 +35,12 @@ periscope . -t
 ```bash
 periscope https://github.com/sangrita-tech/periscope -i ".git" -i "coverage"
 ```
+
+## Release
+
+Push a SemVer tag to publish archives and checksums on GitHub Releases:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
