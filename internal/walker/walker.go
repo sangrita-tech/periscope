@@ -14,11 +14,9 @@ type Walker struct {
 }
 
 func New(matcher *ignore.Matcher) *Walker {
-	w := &Walker{
+	return &Walker{
 		ignore: matcher,
 	}
-
-	return w
 }
 
 func (w *Walker) Walk(source domain.Source) ([]domain.Entry, error) {
@@ -32,15 +30,16 @@ func (w *Walker) Walk(source domain.Source) ([]domain.Entry, error) {
 		currentPath = path.Clean(currentPath)
 		relPath := makeRelPath(source.Root, currentPath)
 
-		if dirEntry.IsDir() {
-			if relPath != "" && w.shouldIgnore(relPath, true) {
+		ignored := w.shouldIgnore(relPath, dirEntry.IsDir())
+		if ignored {
+			if dirEntry.IsDir() {
 				return fs.SkipDir
 			}
 
 			return nil
 		}
 
-		if w.shouldIgnore(relPath, false) {
+		if dirEntry.IsDir() {
 			return nil
 		}
 
@@ -77,11 +76,33 @@ func (w *Walker) shouldIgnore(relPath string, isDir bool) bool {
 }
 
 func makeRelPath(root, currentPath string) string {
-	root = path.Clean(root)
-	currentPath = path.Clean(currentPath)
+	root = cleanWalkPath(root)
+	currentPath = cleanWalkPath(currentPath)
 
-	relPath := strings.TrimPrefix(currentPath, root)
-	relPath = strings.TrimPrefix(relPath, "/")
+	if root == "" || root == "." {
+		return currentPath
+	}
 
-	return relPath
+	if currentPath == root {
+		return ""
+	}
+
+	if relPath, ok := strings.CutPrefix(currentPath, root+"/"); ok {
+		return relPath
+	}
+
+	return strings.TrimLeft(strings.TrimPrefix(currentPath, root), "/")
+}
+
+func cleanWalkPath(value string) string {
+	value = strings.TrimSpace(value)
+	value = strings.ReplaceAll(value, "\\", "/")
+	value = strings.TrimLeft(value, "/")
+	value = path.Clean(value)
+
+	if value == "." {
+		return ""
+	}
+
+	return value
 }

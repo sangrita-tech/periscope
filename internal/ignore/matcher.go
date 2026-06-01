@@ -20,7 +20,7 @@ type rule struct {
 }
 
 func NewMatcher(patterns []string) (*Matcher, error) {
-	rules := make([]rule, 0)
+	rules := make([]rule, 0, len(patterns))
 
 	for _, pattern := range patterns {
 		r, ok, err := newRule(pattern)
@@ -81,6 +81,8 @@ func newRule(pattern string) (rule, bool, error) {
 
 	if shouldCompileRegex(pattern) {
 		reText := strings.ReplaceAll(pattern, `\|`, "|")
+		reText = strings.ReplaceAll(reText, "\\", "/")
+
 		re, err := regexp.Compile(reText)
 		if err != nil {
 			return rule{}, false, fmt.Errorf("compile ignore regexp %q: %w", pattern, err)
@@ -93,7 +95,7 @@ func newRule(pattern string) (rule, bool, error) {
 }
 
 func (r rule) matches(relPath, base string, isDir bool) bool {
-	if r.directoryOnly && !isDir && !isDescendantOf(relPath, r.pathPattern) {
+	if r.directoryOnly && !isDir && !isInDirectory(relPath, r.pathPattern) {
 		return false
 	}
 
@@ -114,7 +116,7 @@ func (r rule) matches(relPath, base string, isDir bool) bool {
 
 func (r rule) matchesPath(relPath, base string) bool {
 	pattern := r.pathPattern
-	if pattern == "" || pattern == "." {
+	if pattern == "" || pattern == "." || hasGlobMeta(pattern) {
 		return false
 	}
 
@@ -122,7 +124,41 @@ func (r rule) matchesPath(relPath, base string) bool {
 		return true
 	}
 
-	return isDescendantOf(relPath, pattern)
+	if strings.Contains(pattern, "/") {
+		return isDescendantOf(relPath, pattern)
+	}
+
+	return hasPathSegment(relPath, pattern)
+}
+
+func hasPathSegment(relPath, segment string) bool {
+	for _, part := range strings.Split(relPath, "/") {
+		if part == segment {
+			return true
+		}
+	}
+
+	return false
+}
+
+func isInDirectory(relPath, dirPath string) bool {
+	dirPath = strings.TrimSuffix(cleanPath(dirPath), "/")
+	if dirPath == "" || dirPath == "." {
+		return false
+	}
+
+	if strings.Contains(dirPath, "/") {
+		return isDescendantOf(relPath, dirPath)
+	}
+
+	parts := strings.Split(relPath, "/")
+	for _, part := range parts[:len(parts)-1] {
+		if part == dirPath {
+			return true
+		}
+	}
+
+	return false
 }
 
 func isDescendantOf(relPath, dirPath string) bool {
@@ -138,7 +174,7 @@ func cleanPath(value string) string {
 	value = strings.TrimSpace(value)
 	value = strings.ReplaceAll(value, "\\", "/")
 	value = strings.TrimPrefix(value, "./")
-	value = strings.TrimPrefix(value, "/")
+	value = strings.TrimLeft(value, "/")
 	value = path.Clean(value)
 
 	if value == "." {
@@ -157,7 +193,7 @@ func cleanPatternPath(value string) string {
 	value = strings.ReplaceAll(value, "\\", "/")
 
 	value = strings.TrimPrefix(value, "./")
-	value = strings.TrimPrefix(value, "/")
+	value = strings.TrimLeft(value, "/")
 	value = path.Clean(value)
 
 	if value == "." {
@@ -172,7 +208,7 @@ func hasGlobMeta(pattern string) bool {
 }
 
 func shouldCompileRegex(pattern string) bool {
-	return strings.Contains(pattern, `\|`) || strings.ContainsAny(pattern, "|()[]^$+") || strings.Contains(pattern, `\`)
+	return strings.Contains(pattern, `\|`) || strings.ContainsAny(pattern, "|()[]^$+") || strings.Contains(pattern, `\\`)
 }
 
 func compileGlob(pattern string) (*regexp.Regexp, error) {
