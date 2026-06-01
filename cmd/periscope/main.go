@@ -33,7 +33,7 @@ func main() {
 
 	log.Info().Msg("Starting periscope")
 
-	s, err := source.ResolveSource("C:\\Projects\\periscope\\cmd\\periscope\\main.go")
+	s, err := source.ResolveSource("C:\\Projects\\periscope\\internal\\domain")
 
 	walker := walker.New()
 	entries, err := walker.Walk(s)
@@ -45,6 +45,7 @@ func main() {
 	out := renderer.Render(entries)
 
 	w := output.NewTerminalWriter(os.Stdout)
+	output.NewClipboardWriter()
 	err = w.Write(out)
 
 	log.Info().Int("num_entries", len(entries)).Msg("Finished walking directory")

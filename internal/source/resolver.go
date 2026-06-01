@@ -44,9 +44,12 @@ func resolveLocalSource(target string) (domain.Source, error) {
 		return domain.Source{}, fmt.Errorf("stat local path: %w", err)
 	}
 
+	parent := filepath.Dir(absTarget)
+	base := filepath.Base(absTarget)
+
 	return domain.Source{
-		Fsys: os.DirFS(absTarget),
-		Root: root,
+		Fsys: os.DirFS(parent),
+		Root: filepath.ToSlash(base),
 	}, nil
 }
 
