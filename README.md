@@ -1,46 +1,284 @@
 # 🔭 Periscope
 
-Periscope prints a text snapshot of a local path or a GitHub/GitLab repository.
+Periscope - это CLI-утилита, которая делает текстовый снимок проекта, папки, отдельного файла или Git-репозитория.
 
-## Install
+Утилита собирает структуру проекта и содержимое текстовых файлов в один Markdown-вывод. Такой снимок удобно отправлять в чат с LLM, использовать для код-ревью, аудита, поддержки или быстрого ознакомления с чужим проектом.
+
+## Что умеет Periscope
+
+- Работает с локальными файлами и папками.
+- Работает с удалёнными Git-репозиториями, например GitHub или GitLab.
+- Печатает результат в терминал.
+- Может скопировать результат в буфер обмена.
+- Может вывести только дерево файлов без содержимого.
+- Позволяет исключать ненужные файлы и директории через `--ignore`.
+- Поддерживает YAML-конфиг для замен текста в итоговом выводе, например для маскирования секретов.
+
+## Установка
 
 ```bash
 go install github.com/sangrita-tech/periscope/cmd/periscope@latest
+
+periscope --help
 ```
 
-## Usage
+## Быстрый старт
+
+Сделать снимок текущей папки:
 
 ```bash
-periscope <path> -t -c -i "vendor" -i "*.log"
+periscope
 ```
 
-`path` can be a file, a directory, a path inside the current repository, or a GitHub/GitLab repository URL.
+Сохранить снимок в файл:
 
-Flags:
+```bash
+periscope > project-snapshot.md
+```
 
-- `-t, --tree` prints only the file tree.
-- `-c, --copy` copies the result to the clipboard.
-- `-i, --ignore` ignores a file or directory pattern. This flag can be repeated.
+Вывести только дерево файлов:
 
-## Examples
+```bash
+periscope -t
+```
+
+Исключить ненужные директории и файлы:
+
+```bash
+periscope -i ".git|node_modules|*.log"
+```
+
+Скопировать результат в буфер обмена:
+
+```bash
+periscope -c
+```
+
+## Использование
+
+```bash
+periscope [path] [flags]
+```
+
+`path` - это цель, из которой нужно сделать снимок.
+
+Можно передать:
+
+- Путь к локальному файлу.
+- Путь к локальной папке.
+- Путь внутри текущего проекта.
+- URL Git-репозитория.
+
+Если `path` не указан, используется текущая директория:
+
+```bash
+periscope
+```
+
+То же самое, что:
 
 ```bash
 periscope .
 ```
 
-```bash
-periscope . -t
-```
+## Флаги
+
+| Флаг             | Описание                                                        |
+| ---------------- | --------------------------------------------------------------- |
+| `-t`, `--tree`   | Вывести только дерево файлов без содержимого.                   |
+| `-c`, `--copy`   | Скопировать результат в буфер обмена.                           |
+| `-i`, `--ignore` | Исключить файл или директорию по шаблону. Флаг можно повторять. |
+| `--config`       | Указать путь к YAML-конфигу.                                    |
+| `--version`      | Показать версию.                                                |
+| `-h`, `--help`   | Показать справку.                                               |
+
+## Примеры
+
+### 1. Снимок текущего проекта
 
 ```bash
-periscope https://github.com/sangrita-tech/periscope -i ".git" -i "coverage"
+periscope .
 ```
 
-## Release
+Periscope прочитает текущую папку и выведет Markdown со списком файлов и содержимым текстовых файлов.
 
-Push a SemVer tag to publish archives and checksums on GitHub Releases:
+### 2. Снимок конкретной папки
+
+```bash
+periscope ./internal
+```
+
+Подходит, когда нужно показать только одну часть проекта.
+
+### 3. Снимок одного файла
+
+```bash
+periscope README.md
+```
+
+Удобно, если нужно передать в вывод только конкретный файл.
+
+### 4. Только дерево проекта
+
+```bash
+periscope . --tree
+```
+
+Пример результата:
+
+```text
+# Periscoped project "my-project" at 2026-06-06 12:00:00
+
+```
+
+```text
+my-project/
+├── cmd/
+│   └── app/
+│       └── main.go
+├── internal/
+│   └── service.go
+└── README.md
+```
+
+### 5. Исключение папок и файлов
+
+```bash
+periscope . \
+  --ignore ".git" \
+  --ignore "node_modules" \
+  --ignore "dist" \
+  --ignore "*.log"
+```
+
+Это полезно, чтобы не включать служебные папки, зависимости, сборочные артефакты и логи.
+
+### 6. Несколько ignore-шаблонов в одном флаге
+
+Можно передать несколько шаблонов через `|`:
+
+```bash
+periscope . --ignore ".git|dist|coverage|*.log"
+```
+
+### 7. Снимок удалённого репозитория
+
+```bash
+periscope https://github.com/sangrita-tech/periscope
+```
+
+С исключениями:
+
+```bash
+periscope https://github.com/sangrita-tech/periscope \
+  --ignore ".git" \
+  --ignore "coverage"
+```
+
+Для приватных репозиториев заранее настройте доступ через SSH или HTTPS-токен так, чтобы Git мог прочитать репозиторий.
+
+### 8. Сохранение результата в файл
+
+```bash
+periscope . --ignore ".git" --ignore "dist" > snapshot.md
+```
+
+После этого файл `snapshot.md` можно отправить другому человеку или приложить к задаче.
+
+### 9. Копирование результата в буфер обмена
+
+```bash
+periscope . --copy
+```
+
+Если копирование не работает в вашей системе, запустите команду без `--copy` и перенаправьте вывод в файл:
+
+```bash
+periscope . > snapshot.md
+```
+
+## Формат вывода
+
+В обычном режиме Periscope выводит Markdown:
+
+````md
+# Periscoped project "project-name" at 2026-06-06 12:00:00
+
+## project-name/README.md
+
+```md
+# Project title
+
+...
+```
+````
+
+Для каждого текстового файла создаётся отдельный блок:
+
+- Заголовок с путём к файлу.
+- Блок с содержимым файла.
+
+Бинарные файлы в обычном режиме пропускаются.
+
+## Конфигурация
+
+Periscope может читать YAML-конфиг.
+
+По умолчанию ищется файл:
+
+```bash
+~/.periscope.yml
+```
+
+Также можно указать путь явно:
+
+```bash
+periscope . --config ./periscope.yml
+```
+
+Пример конфига:
+
+```yaml
+ignore:
+  - .git
+  - dist
+  - coverage
+  - *.log
+
+replace:
+  - pattern: "SECRET_TOKEN"
+    value: "[hidden]"
+  - pattern: "internal.company.com"
+    value: "example.com"
+```
+
+## Разработка
+
+Запуск тестов:
+
+```bash
+go test ./...
+```
+
+Локальный запуск без сборки:
+
+```bash
+go run ./cmd/periscope .
+```
+
+Сборка бинарника:
+
+```bash
+go build -o periscope ./cmd/periscope
+```
+
+## Релиз
+
+Релиз публикуется через GitHub Actions и GoReleaser при пуше SemVer-тега:
 
 ```bash
 git tag v0.1.0
 git push origin v0.1.0
 ```
+
+После этого GitHub Actions собирает архивы и checksums для релиза.
