@@ -9,21 +9,16 @@ import (
 
 	"github.com/hairyhenderson/go-fsimpl"
 	"github.com/hairyhenderson/go-fsimpl/gitfs"
-	"github.com/sangrita-tech/periscope/internal/domain"
+	"github.com/sangrita-tech/periscope/internal/model"
 )
 
 const root = "."
 
-func ResolveSource(target string) (domain.Source, error) {
+func ResolveSource(target string) (model.Source, error) {
 	target = strings.TrimSpace(target)
-	if target == "" {
-		target = "."
-	}
-
 	if isSourceRemote(target) {
 		return resolveGitSource(target)
 	}
-
 	return resolveLocalSource(target)
 }
 
@@ -35,60 +30,48 @@ func isSourceRemote(target string) bool {
 		(strings.Contains(target, "@") && strings.Contains(target, ":"))
 }
 
-func resolveLocalSource(target string) (domain.Source, error) {
+func resolveLocalSource(target string) (model.Source, error) {
 	absTarget, err := filepath.Abs(target)
 	if err != nil {
-		return domain.Source{}, fmt.Errorf("absolute path: %w", err)
+		return model.Source{}, fmt.Errorf("absolute path: %w", err)
 	}
 
 	if _, err := os.Stat(absTarget); err != nil {
-		return domain.Source{}, fmt.Errorf("stat local path: %w", err)
+		return model.Source{}, fmt.Errorf("stat local path: %w", err)
 	}
 
 	parent := filepath.Dir(absTarget)
 	base := filepath.Base(absTarget)
 
-	return domain.Source{
+	return model.Source{
 		Fsys: os.DirFS(parent),
 		Root: filepath.ToSlash(base),
 		Name: base,
 	}, nil
 }
 
-func resolveGitSource(target string) (domain.Source, error) {
+func resolveGitSource(target string) (model.Source, error) {
 	mux := fsimpl.NewMux()
 	mux.Add(gitfs.FS)
 
-	fsys, err := mux.Lookup(makeGitTarget(target))
-	if err != nil {
-		return domain.Source{}, fmt.Errorf("lookup git filesystem: %w", err)
+	gitTarget := target
+	if !strings.HasPrefix(gitTarget, "git+") {
+		gitTarget = "git+" + gitTarget
 	}
 
-	return domain.Source{
+	fsys, err := mux.Lookup(gitTarget)
+	if err != nil {
+		return model.Source{}, fmt.Errorf("lookup git filesystem: %w", err)
+	}
+
+	sourceName := strings.TrimSpace(target)
+	sourceName = strings.TrimPrefix(sourceName, "git+")
+	sourceName = strings.TrimSuffix(sourceName, ".git")
+	sourceName = path.Base(sourceName)
+
+	return model.Source{
 		Fsys: fsys,
 		Root: root,
-		Name: getRemoteSourceName(target),
+		Name: sourceName,
 	}, nil
-}
-
-func makeGitTarget(target string) string {
-	if strings.HasPrefix(target, "git+") {
-		return target
-	}
-
-	return "git+" + target
-}
-
-func getRemoteSourceName(target string) string {
-	target = strings.TrimSpace(target)
-	target = strings.TrimPrefix(target, "git+")
-	target = strings.TrimSuffix(target, "/")
-	target = strings.TrimSuffix(target, ".git")
-	target = strings.ReplaceAll(target, "\\", "/")
-
-	if target == "" || target == "." {
-		return root
-	}
-
-	return path.Base(target)
 }

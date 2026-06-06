@@ -13,3 +13,9 @@ type Replacement struct {
 	Pattern string `yaml:"pattern"`
 	Value   string `yaml:"value"`
 }
+
+type Source struct {
+	Fsys fs.FS
+	Root string
+	Name string
+}
