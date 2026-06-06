@@ -21,7 +21,7 @@ type treeNode struct {
 func RenderTree(src model.Source, entries []model.Entry, generatedAt time.Time) string {
 	var buffer bytes.Buffer
 
-	root := buildTree(src.Root, entries)
+	root := buildTree(src.Name, entries)
 
 	writeHeader(&buffer, src.Name, generatedAt)
 

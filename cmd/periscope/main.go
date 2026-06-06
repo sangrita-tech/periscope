@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/sangrita-tech/periscope/internal/config"
@@ -75,6 +76,8 @@ func run(
 		return fmt.Errorf("read config: %w", err)
 	}
 
+	ignorePatterns = splitIgnorePatterns(ignorePatterns)
+
 	allIgnorePatterns := append([]string{}, cfg.Ignore...)
 	allIgnorePatterns = append(allIgnorePatterns, ignorePatterns...)
 
@@ -136,4 +139,21 @@ func initConfig(configPath string) (*config.Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func splitIgnorePatterns(patterns []string) []string {
+	var result []string
+
+	for _, pattern := range patterns {
+		for _, part := range strings.Split(pattern, "|") {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				continue
+			}
+
+			result = append(result, part)
+		}
+	}
+
+	return result
 }

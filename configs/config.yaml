@@ -1,6 +1,4 @@
 ignore:
   - .git
 
-replace:
-  - pattern: models
-    value: submodule
+replace: []
