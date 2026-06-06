@@ -64,7 +64,7 @@ func resolveGitSource(target string) (model.Source, error) {
 		return model.Source{}, fmt.Errorf("lookup git filesystem: %w", err)
 	}
 
-	sourceName := strings.TrimSpace(target)
+	sourceName := strings.TrimSpace(gitTarget)
 	sourceName = strings.TrimPrefix(sourceName, "git+")
 	sourceName = strings.TrimSuffix(sourceName, ".git")
 	sourceName = path.Base(sourceName)

@@ -3,7 +3,7 @@ package walker
 import (
 	"io/fs"
 	"path"
-	"path/filepath"
+	"strings"
 
 	"github.com/sangrita-tech/periscope/internal/ignore"
 	"github.com/sangrita-tech/periscope/internal/model"
@@ -30,10 +30,7 @@ func (w *Walker) Walk(src model.Source) ([]model.Entry, error) {
 		}
 
 		currentPath := path.Clean(p)
-		relPath, err := filepath.Rel(root, currentPath)
-		if err != nil {
-			relPath = currentPath
-		}
+		relPath := relativePath(root, currentPath)
 
 		if w.ignore.Match(relPath) {
 			if d.IsDir() {
@@ -56,14 +53,12 @@ func (w *Walker) Walk(src model.Source) ([]model.Entry, error) {
 			return err
 		}
 
-		entry := model.Entry{
+		entries = append(entries, model.Entry{
 			Path:    currentPath,
 			RelPath: relPath,
 			Data:    data,
 			Meta:    meta,
-		}
-
-		entries = append(entries, entry)
+		})
 
 		return nil
 	})
@@ -73,4 +68,12 @@ func (w *Walker) Walk(src model.Source) ([]model.Entry, error) {
 	}
 
 	return entries, nil
+}
+
+func relativePath(root, currentPath string) string {
+	if currentPath == root {
+		return "."
+	}
+
+	return strings.TrimPrefix(currentPath, root+"/")
 }
